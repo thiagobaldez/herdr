@@ -94,6 +94,7 @@ pub(super) struct ShellHitMap {
     pub(super) popup: Option<PaneHit>,
     pub(super) pane_splits: Vec<PaneSplitHit>,
     pub(super) agents: Vec<(Rect, String)>,
+    pub(super) dormant_agents: Vec<(Rect, String)>,
     pub(super) endpoint_agents: Vec<(Rect, ClientEndpointId, String)>,
     pub(super) agent_body: Rect,
     pub(super) agent_scrollbar: Rect,
@@ -525,6 +526,9 @@ pub(super) enum ClientContextMenuAction {
     Zoom,
     ToggleRightClickPassthrough,
     ClosePane,
+    NewAgent,
+    ResumeAgent,
+    DeleteAgent,
 }
 
 #[derive(Debug)]
@@ -547,6 +551,20 @@ pub(super) enum ClientContextMenuTarget {
         source_pane_id: Option<String>,
         has_manual_label: bool,
         right_click_passthrough: bool,
+    },
+    /// A live agent row in the Agents panel.
+    Agent {
+        pane_id: String,
+        workspace_id: String,
+    },
+    /// A dormant agent row (its pane closed while it was running).
+    DormantAgent {
+        id: String,
+        workspace_id: Option<String>,
+    },
+    /// Empty space in the Agents panel.
+    AgentPanel {
+        workspace_id: Option<String>,
     },
 }
 
@@ -577,6 +595,8 @@ pub(super) struct ClientConfirmCloseOverlay {
     pub(super) tab_target: Option<ClientTabCloseConfirmation>,
     pub(super) title: String,
     pub(super) detail: String,
+    /// Set when this confirms deleting an agent instead of closing.
+    pub(super) agent_delete: Option<crate::api::schema::AgentDeleteParams>,
 }
 
 #[derive(Debug)]

@@ -1835,6 +1835,11 @@ impl ClientShellState {
                 if !self.config.mouse_capture {
                     return;
                 }
+                if let Some(target) = self.agent_panel_context_target(point) {
+                    self.open_agent_context_menu(target, mouse.column, mouse.row);
+                    outcome.repaint = true;
+                    return;
+                }
                 let workspace_id = (!self.sidebar_collapsed)
                     .then(|| self.active_endpoint_workspace_at(point))
                     .flatten();
@@ -2142,6 +2147,21 @@ impl ClientShellState {
                     return;
                 }
                 if self.handle_endpoint_agent_click(point, outcome) {
+                    return;
+                }
+                let dormant_id = self
+                    .hits
+                    .dormant_agents
+                    .iter()
+                    .find(|(rect, _)| super::contains(*rect, point))
+                    .map(|(_, id)| id.clone());
+                if let Some(id) = dormant_id {
+                    self.push_endpoint_method(
+                        crate::api::schema::Method::AgentDormantResume(
+                            crate::api::schema::AgentDormantTarget { id },
+                        ),
+                        outcome,
+                    );
                     return;
                 }
                 let agent_pane_id = self

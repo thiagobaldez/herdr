@@ -55,7 +55,7 @@ pub(super) fn snapshot_with_completions(
             app.public_pane_id(workspace_index, pane_id)
         })
         .or_else(|| snapshot.focused_pane_id.clone());
-    let workspaces = snapshot
+    let workspaces: Vec<protocol::ClientShellWorkspace> = snapshot
         .workspaces
         .into_iter()
         .zip(&app.state.workspaces)
@@ -239,6 +239,33 @@ pub(super) fn snapshot_with_completions(
                 preview: notes.preview,
             });
 
+    // Hide dormant entries already running again (resumed from outside the panel).
+    let live_sessions = app
+        .state
+        .terminals
+        .values()
+        .filter_map(|terminal| terminal.current_session_identity_for_persistence())
+        .map(|(_, _, _, value)| value)
+        .collect::<std::collections::HashSet<_>>();
+    let dormant_agents = app
+        .state
+        .dormant_agents
+        .iter()
+        .filter(|agent| !live_sessions.contains(agent.id()))
+        .map(|agent| {
+            let label = crate::app::dormant::label_for_cwd(&agent.cwd);
+            protocol::ClientShellDormantAgent {
+                id: agent.id().to_owned(),
+                agent: agent.agent.clone(),
+                title: agent.title.clone(),
+                cwd: agent.cwd.display().to_string(),
+                workspace_id: workspaces
+                    .iter()
+                    .find(|workspace: &&protocol::ClientShellWorkspace| workspace.label == label)
+                    .map(|workspace| workspace.workspace_id.clone()),
+            }
+        })
+        .collect();
     let shell = protocol::ClientShellSnapshot {
         boot_id: boot_id.to_owned(),
         revision,
@@ -263,6 +290,7 @@ pub(super) fn snapshot_with_completions(
         panes,
         agents,
         commands: app.client_shell_command_manifest(),
+        dormant_agents,
     };
     (shell, completions)
 }

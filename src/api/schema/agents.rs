@@ -163,6 +163,31 @@ pub enum AgentViewSortOrder {
     Desc,
 }
 
+/// Opens a new tab in a workspace and starts an interactive agent in it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct AgentNewParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_id: Option<String>,
+    /// Agent kind, `claude` when omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+}
+
+/// A dormant agent: one whose pane closed while it was running.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct AgentDormantTarget {
+    pub id: String,
+}
+
+/// Deletes a live agent (closing its pane without keeping it dormant) or a dormant one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct AgentDeleteParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pane_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dormant_id: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct AgentStartParams {
     pub name: String,

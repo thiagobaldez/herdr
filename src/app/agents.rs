@@ -406,6 +406,27 @@ impl App {
         })
     }
 
+    /// A valid, unused agent name derived from `label` (a folder or space name).
+    pub(super) fn unique_agent_name(&self, label: &str) -> String {
+        let mut base = label
+            .to_ascii_lowercase()
+            .chars()
+            .map(|ch| if ch.is_ascii_alphanumeric() || ch == '_' { ch } else { '-' })
+            .collect::<String>()
+            .split('-')
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join("-");
+        base.truncate(28);
+        if !valid_agent_name(&base) {
+            base = "agent".to_owned();
+        }
+        (1..100)
+            .map(|n| if n == 1 { base.clone() } else { format!("{base}-{n}") })
+            .find(|name| self.agent_name_conflicts(name, "").is_empty())
+            .unwrap_or(base)
+    }
+
     fn agent_name_conflicts(
         &self,
         name: &str,

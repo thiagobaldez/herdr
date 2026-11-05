@@ -13,6 +13,9 @@ pub(crate) const MAX_ENDPOINT_REQUEST_ID_BYTES: usize = 128;
 const ENDPOINT_RESPONSE_CHUNK_BYTES: usize = 512 * 1024;
 
 const CLIENT_SHELL_METHODS: &[&str] = &[
+    "agent.delete",
+    "agent.dormant.resume",
+    "agent.new",
     "client_shell.surface.set",
     "command.invoke",
     "integration.install",
@@ -190,6 +193,14 @@ mod tests {
 
     use super::*;
 
+    /// The Agents panel's right-click and click actions are sent by the client shell.
+    #[test]
+    fn agent_panel_actions_are_client_shell_methods() {
+        for method in ["agent.new", "agent.dormant.resume", "agent.delete"] {
+            assert!(supports_client_shell_method_name(method), "{method}");
+        }
+    }
+
     fn collect_schema_refs(value: &serde_json::Value, refs: &mut BTreeSet<String>) {
         match value {
             serde_json::Value::Object(object) => {
@@ -297,6 +308,14 @@ mod tests {
             actual.remove("pane.link.resolve").as_deref(),
             Some("f5e4a3e01453ae7b188f127ce951c12c20e0bebcc17cc364eeb6d1a01fd5bf81")
         );
+        // Fork: Agents panel actions (dormant agents).
+        for (method, digest) in [
+            ("agent.delete", "7684908f3fe49b944e95ab3927d159bb4b8013276b50754ee10baaa8dcb65f2d"),
+            ("agent.dormant.resume", "c46fa54ab878cff44727e39e54b7055255dd807425d5ddb58e95b3e19ae2e5d7"),
+            ("agent.new", "aab0559fe33c83be3bbf5388f7f541e8e5412882a73a6e37010bbcd5f55b8fa9"),
+        ] {
+            assert_eq!(actual.remove(method).as_deref(), Some(digest), "{method}");
+        }
 
         assert_eq!(
             actual, expected,

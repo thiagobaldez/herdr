@@ -637,6 +637,17 @@ impl AppState {
                         .any(|pane| pane.attached_terminal_id == terminal_id)
                 })
             });
+            // An agent still running when its last pane closes stays listed as dormant,
+            // unless the close is a deliberate delete.
+            if !still_attached && !self.dormant_suppressed_terminals.remove(&terminal_id) {
+                if let Some(dormant) = self
+                    .terminals
+                    .get(&terminal_id)
+                    .and_then(super::dormant::DormantAgent::from_terminal)
+                {
+                    self.remember_dormant_agent(dormant);
+                }
+            }
             if !still_attached
                 && self.terminals.remove(&terminal_id).is_some()
                 && !self.terminal_runtime_shutdowns.contains(&terminal_id)

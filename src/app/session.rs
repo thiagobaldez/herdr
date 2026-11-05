@@ -19,6 +19,12 @@ impl App {
     }
 
     pub(crate) fn sync_session_save_schedule(&mut self) {
+        if self.state.dormant_agents_dirty {
+            self.state.dormant_agents_dirty = false;
+            if self.policy.persist_session {
+                super::dormant::save(&self.state.dormant_agents);
+            }
+        }
         if self.state.session_dirty {
             self.state.session_dirty = false;
             self.schedule_session_save();

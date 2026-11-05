@@ -1082,6 +1082,10 @@ impl ClientShellState {
             return;
         };
         outcome.repaint = true;
+        if let Some(params) = confirm.agent_delete {
+            self.push_endpoint_method(crate::api::schema::Method::AgentDelete(params), outcome);
+            return;
+        }
         let method = if let Some(target) = confirm.tab_target {
             if target.workspace.endpoint_id != self.active_endpoint_id
                 || !self.navigation_target_valid(&target.workspace)
@@ -1214,6 +1218,7 @@ impl ClientShellState {
                     "Close workspace?".to_owned()
                 },
                 detail: format!("{} — {scope}", workspace.label),
+                agent_delete: None,
             },
         ));
         true

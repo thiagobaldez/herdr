@@ -15,6 +15,8 @@ pub(super) struct AgentRow {
     pub(super) status: crate::api::schema::AgentStatus,
     pub(super) focused: bool,
     pub(super) rows: Vec<Vec<crate::ui::ResolvedToken>>,
+    /// Set for a dormant agent (its pane closed while it was running).
+    pub(super) dormant_id: Option<String>,
 }
 
 pub(super) fn ordered_agent_pane_ids(
@@ -67,7 +69,8 @@ pub(super) fn render_agent_panel(
         return;
     }
 
-    let rows = agent_rows(snapshot, config, None);
+    let mut rows = agent_rows(snapshot, config, None);
+    rows.extend(dormant_agent_rows(snapshot, config));
     render_agent_list(
         buffer,
         area,
@@ -81,8 +84,18 @@ pub(super) fn render_agent_panel(
         hits,
         |row| row.rows.len(),
         |buffer, rect, row, hits| {
-            hits.agents.push((rect, row.pane_id.clone()));
             render_agent_row(buffer, rect, row, config);
+            if let Some(id) = &row.dormant_id {
+                hits.dormant_agents.push((rect, id.clone()));
+                buffer.set_style(
+                    rect,
+                    Style::default()
+                        .fg(config.palette.overlay0)
+                        .add_modifier(Modifier::DIM),
+                );
+            } else {
+                hits.agents.push((rect, row.pane_id.clone()));
+            }
         },
     );
 }
@@ -315,7 +328,64 @@ pub(super) fn agent_row(
         status: agent.agent_status,
         focused: agent.focused,
         rows,
+        dormant_id: None,
     })
+}
+
+/// Dormant agents, after the live ones. With a space-scoped view, only those of the
+/// focused space, plus those whose space is no longer open (they have nowhere else).
+fn dormant_agent_rows(snapshot: &ClientShellSnapshot, config: &ClientShellConfig) -> Vec<AgentRow> {
+    let scoped = snapshot.agent_view_label.is_some();
+    let no_tokens = HashMap::new();
+    snapshot
+        .dormant_agents
+        .iter()
+        .filter(|agent| {
+            !scoped
+                || agent.workspace_id.is_none()
+                || agent.workspace_id == snapshot.focused_workspace_id
+        })
+        .map(|agent| {
+            let workspace = agent
+                .workspace_id
+                .as_ref()
+                .and_then(|id| {
+                    snapshot
+                        .workspaces
+                        .iter()
+                        .find(|workspace| &workspace.workspace_id == id)
+                })
+                .map(|workspace| workspace.label.clone())
+                .unwrap_or_else(|| {
+                    std::path::Path::new(&agent.cwd)
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| agent.cwd.clone())
+                });
+            let rows = crate::ui::sidebar_agent_rows(
+                &config.agents,
+                crate::ui::AgentTokenContext {
+                    machine: None,
+                    workspace: &workspace,
+                    tab: None,
+                    pane: agent.title.as_deref(),
+                    agent_label: Some(&agent.agent),
+                    terminal_title: agent.title.as_deref(),
+                    terminal_title_stripped: agent.title.as_deref(),
+                    canonical_agent: crate::detect::parse_agent_label(&agent.agent),
+                    tokens: &no_tokens,
+                },
+                "closed",
+            );
+            AgentRow {
+                pane_id: String::new(),
+                status: crate::api::schema::AgentStatus::Unknown,
+                focused: false,
+                rows,
+                dormant_id: Some(agent.id.clone()),
+            }
+        })
+        .collect()
 }
 
 pub(super) fn render_agent_row(

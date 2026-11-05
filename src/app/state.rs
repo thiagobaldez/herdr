@@ -873,6 +873,11 @@ pub struct AppState {
     pub(crate) installed_plugins: InstalledPluginRegistry,
     /// Pane ids opened through the plugin pane API.
     pub(crate) plugin_panes: std::collections::HashMap<PaneId, PluginPaneRecord>,
+    /// Agents whose pane closed while they were running (see `app::dormant`).
+    pub(crate) dormant_agents: Vec<super::dormant::DormantAgent>,
+    pub(crate) dormant_agents_dirty: bool,
+    /// Terminals being deleted on purpose: closing them must not keep the agent.
+    pub(crate) dormant_suppressed_terminals: std::collections::HashSet<crate::terminal::TerminalId>,
     /// Session-modal terminal popup. This is intentionally outside workspace layouts.
     pub(crate) popup_pane: Option<PopupPaneState>,
     /// Recent plugin action/event command executions.
@@ -1112,6 +1117,9 @@ impl AppState {
                 crate::detect::manifest_update::ManifestUpdateStatus::default(),
             installed_plugins: std::collections::HashMap::new(),
             plugin_panes: std::collections::HashMap::new(),
+            dormant_agents: Vec::new(),
+            dormant_agents_dirty: false,
+            dormant_suppressed_terminals: std::collections::HashSet::new(),
             popup_pane: None,
             plugin_command_logs: Vec::new(),
             next_plugin_command_log_id: 1,

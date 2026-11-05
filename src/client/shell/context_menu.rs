@@ -79,6 +79,16 @@ impl ClientContextMenuOverlay {
                 ]);
                 items
             }
+            ClientContextMenuTarget::Agent { .. } => vec![
+                item("New agent", Action::NewAgent),
+                item("Delete agent", Action::DeleteAgent),
+            ],
+            ClientContextMenuTarget::DormantAgent { .. } => vec![
+                item("Resume", Action::ResumeAgent),
+                item("New agent", Action::NewAgent),
+                item("Delete agent", Action::DeleteAgent),
+            ],
+            ClientContextMenuTarget::AgentPanel { .. } => vec![item("New agent", Action::NewAgent)],
         }
     }
 }
@@ -117,6 +127,63 @@ impl ClientShellState {
                 close_group,
                 collapsed,
             },
+            x,
+            y,
+            highlighted: 0,
+        }));
+    }
+
+    /// What a right-click at `point` in the expanded Agents panel targets, if anything.
+    pub(super) fn agent_panel_context_target(
+        &self,
+        point: (u16, u16),
+    ) -> Option<ClientContextMenuTarget> {
+        let snapshot = self.snapshot.as_deref()?;
+        if let Some((_, pane_id)) = self
+            .hits
+            .agents
+            .iter()
+            .find(|(rect, _)| super::contains(*rect, point))
+        {
+            let agent = snapshot
+                .agents
+                .iter()
+                .find(|agent| &agent.pane_id == pane_id)?;
+            return Some(ClientContextMenuTarget::Agent {
+                pane_id: pane_id.clone(),
+                workspace_id: agent.workspace_id.clone(),
+            });
+        }
+        if let Some((_, id)) = self
+            .hits
+            .dormant_agents
+            .iter()
+            .find(|(rect, _)| super::contains(*rect, point))
+        {
+            let workspace_id = snapshot
+                .dormant_agents
+                .iter()
+                .find(|agent| &agent.id == id)
+                .and_then(|agent| agent.workspace_id.clone());
+            return Some(ClientContextMenuTarget::DormantAgent {
+                id: id.clone(),
+                workspace_id,
+            });
+        }
+        super::contains(self.hits.agent_body, point).then(|| ClientContextMenuTarget::AgentPanel {
+            workspace_id: snapshot.focused_workspace_id.clone(),
+        })
+    }
+
+    /// Right-click in the Agents panel: on a live agent, a dormant one, or empty space.
+    pub(super) fn open_agent_context_menu(
+        &mut self,
+        target: ClientContextMenuTarget,
+        x: u16,
+        y: u16,
+    ) {
+        self.overlay = Some(ClientShellOverlay::ContextMenu(ClientContextMenuOverlay {
+            target,
             x,
             y,
             highlighted: 0,
@@ -215,6 +282,48 @@ impl ClientShellState {
                 action,
                 outcome,
             ),
+            ClientContextMenuTarget::Agent {
+                pane_id,
+                workspace_id,
+            } => self.activate_agent_context_action(
+                Some(workspace_id),
+                crate::api::schema::AgentDeleteParams {
+                    pane_id: Some(pane_id),
+                    dormant_id: None,
+                },
+                action,
+                outcome,
+            ),
+            ClientContextMenuTarget::DormantAgent { id, workspace_id } => {
+                if action == ClientContextMenuAction::ResumeAgent {
+                    self.push_endpoint_method(
+                        crate::api::schema::Method::AgentDormantResume(
+                            crate::api::schema::AgentDormantTarget { id },
+                        ),
+                        outcome,
+                    );
+                } else {
+                    self.activate_agent_context_action(
+                        workspace_id,
+                        crate::api::schema::AgentDeleteParams {
+                            pane_id: None,
+                            dormant_id: Some(id),
+                        },
+                        action,
+                        outcome,
+                    );
+                }
+            }
+            ClientContextMenuTarget::AgentPanel { workspace_id } => self
+                .activate_agent_context_action(
+                    workspace_id,
+                    crate::api::schema::AgentDeleteParams {
+                        pane_id: None,
+                        dormant_id: None,
+                    },
+                    action,
+                    outcome,
+                ),
         }
         outcome.repaint = true;
     }
@@ -448,6 +557,69 @@ impl ClientShellState {
                 outcome,
             ),
             ClientContextMenuAction::ClosePane => self.request_pane_close(pane_id, outcome),
+            _ => {}
+        }
+    }
+
+    fn activate_agent_context_action(
+        &mut self,
+        workspace_id: Option<String>,
+        delete: crate::api::schema::AgentDeleteParams,
+        action: ClientContextMenuAction,
+        outcome: &mut ClientShellInput,
+    ) {
+        match action {
+            ClientContextMenuAction::NewAgent => {
+                let workspace_id = workspace_id.or_else(|| {
+                    self.snapshot
+                        .as_deref()
+                        .and_then(|snapshot| snapshot.focused_workspace_id.clone())
+                });
+                self.push_endpoint_method(
+                    crate::api::schema::Method::AgentNew(crate::api::schema::AgentNewParams {
+                        workspace_id,
+                        kind: None,
+                    }),
+                    outcome,
+                );
+            }
+            ClientContextMenuAction::DeleteAgent
+                if delete.pane_id.is_some() || delete.dormant_id.is_some() =>
+            {
+                let name = self.snapshot.as_deref().and_then(|snapshot| {
+                    if let Some(pane_id) = &delete.pane_id {
+                        snapshot
+                            .agents
+                            .iter()
+                            .find(|agent| &agent.pane_id == pane_id)
+                            .and_then(|agent| {
+                                agent
+                                    .terminal_title_stripped
+                                    .clone()
+                                    .or_else(|| agent.name.clone())
+                            })
+                    } else {
+                        snapshot
+                            .dormant_agents
+                            .iter()
+                            .find(|agent| Some(&agent.id) == delete.dormant_id.as_ref())
+                            .map(|agent| agent.title.clone().unwrap_or_else(|| agent.cwd.clone()))
+                    }
+                });
+                self.overlay = Some(ClientShellOverlay::ConfirmClose(
+                    ClientConfirmCloseOverlay {
+                        workspace_id: workspace_id.unwrap_or_default(),
+                        close_group: false,
+                        tab_target: None,
+                        title: "Delete agent?".to_owned(),
+                        detail: format!(
+                            "{} — history goes to the Recycle Bin",
+                            name.unwrap_or_else(|| "agent".to_owned())
+                        ),
+                        agent_delete: Some(delete),
+                    },
+                ));
+            }
             _ => {}
         }
     }

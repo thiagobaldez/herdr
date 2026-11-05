@@ -218,6 +218,7 @@ pub enum EventKind {
     PaneAgentDetected,
     PaneAgentStatusChanged,
     LayoutUpdated,
+    AgentDeleted,
 }
 
 impl EventKind {
@@ -249,6 +250,7 @@ impl EventKind {
             EventKind::PaneAgentDetected => "pane.agent_detected",
             EventKind::PaneAgentStatusChanged => "pane.agent_status_changed",
             EventKind::LayoutUpdated => "layout.updated",
+            EventKind::AgentDeleted => "agent.deleted",
         }
     }
 }
@@ -281,6 +283,7 @@ pub const KNOWN_EVENT_KINDS: &[EventKind] = &[
     EventKind::PaneAgentDetected,
     EventKind::PaneAgentStatusChanged,
     EventKind::LayoutUpdated,
+    EventKind::AgentDeleted,
 ];
 
 pub const PLUGIN_HOOK_EVENT_KINDS: &[EventKind] = &[
@@ -306,6 +309,7 @@ pub const PLUGIN_HOOK_EVENT_KINDS: &[EventKind] = &[
     EventKind::PaneExited,
     EventKind::PaneAgentDetected,
     EventKind::PaneAgentStatusChanged,
+    EventKind::AgentDeleted,
 ];
 
 #[cfg(test)]
@@ -422,6 +426,12 @@ pub struct PaneScrollChangedEvent {
 pub enum EventData {
     WorkspaceCreated {
         workspace: WorkspaceInfo,
+    },
+    /// An agent deleted from the Agents panel (live or dormant).
+    AgentDeleted {
+        agent: String,
+        session_id: String,
+        cwd: String,
     },
     WorkspaceUpdated {
         workspace: WorkspaceInfo,

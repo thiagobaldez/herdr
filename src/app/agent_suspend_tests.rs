@@ -283,3 +283,56 @@ fn same_kind_replacement_drops_the_previous_pi_session_and_authority() {
     assert_eq!(session_value(&app, &terminal_id), None);
     app.assert_invariants_for_test();
 }
+
+// Dormant agents: closing a pane whose agent is still running keeps it listed.
+
+#[test]
+fn closing_a_running_claude_keeps_it_dormant_with_its_resume_args() {
+    let (mut app, _pane_id, _terminal_id) = claude_with_session(Instant::now());
+
+    app.close_workspaces(vec![0]);
+
+    assert_eq!(app.dormant_agents.len(), 1);
+    let dormant = &app.dormant_agents[0];
+    assert_eq!(dormant.id(), claude_session().value);
+    assert_eq!(dormant.agent, "claude");
+    let args = dormant.resume_args().expect("claude is resumable");
+    assert!(args.contains(&claude_session().value), "{args:?}");
+    assert!(app.dormant_agents_dirty);
+}
+
+#[test]
+fn closing_after_the_agent_exited_keeps_nothing() {
+    let start = Instant::now();
+    let (mut app, pane_id, _terminal_id) = claude_with_session(start);
+    real_exit(&mut app, pane_id, Agent::Claude, start + Duration::from_secs(1));
+
+    app.close_workspaces(vec![0]);
+
+    assert!(app.dormant_agents.is_empty());
+}
+
+#[test]
+fn deliberate_delete_keeps_nothing() {
+    let (mut app, _pane_id, terminal_id) = claude_with_session(Instant::now());
+    app.dormant_suppressed_terminals.insert(terminal_id.clone());
+
+    app.close_workspaces(vec![0]);
+
+    assert!(app.dormant_agents.is_empty());
+    assert!(!app.dormant_suppressed_terminals.contains(&terminal_id));
+}
+
+#[test]
+fn remembering_the_same_session_twice_keeps_one_entry() {
+    let (mut app, _pane_id, terminal_id) = claude_with_session(Instant::now());
+    let dormant =
+        crate::app::dormant::DormantAgent::from_terminal(&app.terminals[&terminal_id]).unwrap();
+
+    app.remember_dormant_agent(dormant.clone());
+    app.remember_dormant_agent(dormant.clone());
+
+    assert_eq!(app.dormant_agents.len(), 1);
+    assert_eq!(app.take_dormant_agent(dormant.id()), Some(dormant));
+    assert!(app.dormant_agents.is_empty());
+}

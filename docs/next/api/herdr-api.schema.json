@@ -98,6 +98,31 @@
               "type": "object"
             },
             {
+              "description": "An agent deleted from the Agents panel (live or dormant).",
+              "properties": {
+                "agent": {
+                  "type": "string"
+                },
+                "cwd": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "type": {
+                  "const": "agent_deleted",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "agent",
+                "session_id",
+                "cwd"
+              ],
+              "type": "object"
+            },
+            {
               "properties": {
                 "type": {
                   "const": "workspace_updated",
@@ -753,7 +778,8 @@
             "pane_exited",
             "pane_agent_detected",
             "pane_agent_status_changed",
-            "layout_updated"
+            "layout_updated",
+            "agent_deleted"
           ],
           "type": "string"
         },
@@ -1228,6 +1254,55 @@
     },
     "request": {
       "$defs": {
+        "AgentDeleteParams": {
+          "description": "Deletes a live agent (closing its pane without keeping it dormant) or a dormant one.",
+          "properties": {
+            "dormant_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pane_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "AgentDormantTarget": {
+          "description": "A dormant agent: one whose pane closed while it was running.",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "AgentNewParams": {
+          "description": "Opens a new tab in a workspace and starts an interactive agent in it.",
+          "properties": {
+            "kind": {
+              "description": "Agent kind, `claude` when omitted.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "workspace_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "type": "object"
+        },
         "AgentPromptParams": {
           "properties": {
             "target": {
@@ -5404,6 +5479,54 @@
         {
           "properties": {
             "method": {
+              "const": "agent.new",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/AgentNewParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "agent.dormant.resume",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/AgentDormantTarget"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "agent.delete",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/AgentDeleteParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
               "const": "agent.prompt",
               "type": "string"
             },
@@ -6811,6 +6934,31 @@
               "type": "object"
             },
             {
+              "description": "An agent deleted from the Agents panel (live or dormant).",
+              "properties": {
+                "agent": {
+                  "type": "string"
+                },
+                "cwd": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "type": {
+                  "const": "agent_deleted",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "agent",
+                "session_id",
+                "cwd"
+              ],
+              "type": "object"
+            },
+            {
               "properties": {
                 "type": {
                   "const": "workspace_updated",
@@ -7481,7 +7629,8 @@
             "pane_exited",
             "pane_agent_detected",
             "pane_agent_status_changed",
-            "layout_updated"
+            "layout_updated",
+            "agent_deleted"
           ],
           "type": "string"
         },

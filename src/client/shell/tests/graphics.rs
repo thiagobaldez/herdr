@@ -262,6 +262,7 @@ fn every_dialog_and_menu_occludes_its_panel_not_the_whole_screen() {
             tab_target: None,
             title: "close".into(),
             detail: "confirm".into(),
+            agent_delete: None,
         }),
         ClientShellOverlay::Help(ClientHelpOverlay {
             query: TextEditor::default(),

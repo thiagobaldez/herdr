@@ -2,6 +2,7 @@ use std::time::{Duration, Instant};
 
 mod agent_view;
 mod agents;
+mod dormant;
 mod env;
 mod integrations;
 mod layouts;
@@ -1121,6 +1122,11 @@ impl App {
                 return self.handle_agent_view_clear(request.id, params);
             }
             Method::AgentStart(params) => return self.handle_agent_start(request.id, params),
+            Method::AgentNew(params) => return self.handle_agent_new(request.id, params),
+            Method::AgentDormantResume(target) => {
+                return self.handle_agent_dormant_resume(request.id, target);
+            }
+            Method::AgentDelete(params) => return self.handle_agent_delete(request.id, params),
             Method::AgentPrompt(_) => {
                 return responses::encode_error(
                     request.id,

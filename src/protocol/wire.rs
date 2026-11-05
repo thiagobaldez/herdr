@@ -948,6 +948,19 @@ pub struct ClientShellSnapshot {
     pub panes: Vec<ClientShellPane>,
     pub agents: Vec<ClientShellAgent>,
     pub commands: Vec<ClientShellCommand>,
+    /// Agents whose pane closed while they were running; shown dimmed in the Agents panel.
+    #[serde(default)]
+    pub dormant_agents: Vec<ClientShellDormantAgent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClientShellDormantAgent {
+    pub id: String,
+    pub agent: String,
+    pub title: Option<String>,
+    pub cwd: String,
+    /// The open space for this agent's folder, if any.
+    pub workspace_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -2859,6 +2872,7 @@ mod tests {
                 action: ClientShellCommandAction::Shell,
                 description: Some("deploy".into()),
             }],
+            dormant_agents: Vec::new(),
         }));
         let encoded = bincode::serde::encode_to_vec(&msg, bincode::config::standard()).unwrap();
         let (decoded, _): (ServerMessage, _) =

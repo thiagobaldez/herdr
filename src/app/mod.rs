@@ -17,6 +17,7 @@ mod api_helpers;
 pub(crate) use api_helpers::limit_snapshot_lines;
 mod creation;
 mod custom_commands;
+pub(crate) mod dormant;
 mod git_refresh;
 mod ids;
 mod popup;
@@ -567,6 +568,13 @@ impl App {
                 &mut plugin_installation_leases,
             ),
             plugin_panes: std::collections::HashMap::new(),
+            dormant_agents: if policy.restore_session {
+                dormant::load()
+            } else {
+                Vec::new()
+            },
+            dormant_agents_dirty: false,
+            dormant_suppressed_terminals: std::collections::HashSet::new(),
             popup_pane: None,
             plugin_command_logs: Vec::new(),
             next_plugin_command_log_id: 1,
